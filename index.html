@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>LED STAGE MADRID</title>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@v0.163.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@v0.163.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <link rel="stylesheet" href="./style.css">
+	</head>
+  
+	<body>
+    <div id="heading">
+      <h1>APPIA PREVIZ LITE : LED STAGE MADRID</h1>
+      <div class="border"></div>
+    </div>
+    
+    <div id="main-tools-panel">
+      <div class="tool-section">
+        <h3>Screen Controls</h3>
+        <div class="tool-content">
+          <label for="file-input">Custom Background:</label>
+          <div class="file-input-row">
+            <input type="file" id="file-input" accept="image/*" />
+            <button id="reset-button" title="Reset Background"><i data-lucide="refresh-cw"></i></button>
+          </div>
+          
+          <label for="emissive-slider">Screen Brightness:</label>
+          <input type="range" id="emissive-slider" min="0" max="5" step="0.1" value="1" />
+          <span id="emissive-value">1.0</span>
+        </div>
+      </div>
+      
+      <div class="tool-section">
+        <h3>3D Model Upload</h3>
+        <div class="tool-content">
+          <label for="gltf-input">Upload GLB Model:</label>
+          <input type="file" id="gltf-input" accept=".gltf,.glb" />
+          <button id="place-model-button" disabled title="Add Model to Scene"><i data-lucide="plus"></i> Add to Scene</button>
+        </div>
+      </div>
+      
+      <div class="tool-section">
+        <h3>Cinema Cameras</h3>
+        <div class="tool-content">
+          <button id="add-camera-btn" title="Add New Camera"><i data-lucide="plus"></i><i data-lucide="video"></i> New Camera</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="selection-controls-area">
+      <div id="model-controls" style="display: none;">
+        <div class="panel-header">
+          <h3>Selected Model</h3>
+          <button class="collapse-btn" id="model-collapse-btn" title="Collapse Panel"><i data-lucide="chevron-up"></i></button>
+        </div>
+        <div class="panel-content" id="model-content">
+        <div id="transform-space-toggle">
+          <label>Transform Space:</label>
+          <button id="model-world-btn" class="space-btn active" title="World Space (X)">World</button>
+          <button id="model-local-btn" class="space-btn" title="Local Space (X)">Local</button>
+        </div>
+        <div id="control-buttons">
+          <button id="move-mode-btn" title="Move (G)"><i data-lucide="move-3d"></i></button>
+          <button id="rotate-mode-btn" title="Rotate (R)"><i data-lucide="rotate-3d"></i></button>
+          <button id="scale-mode-btn" title="Scale (S)"><i data-lucide="expand"></i></button>
+        </div>
+        <div id="model-delete-row">
+          <button id="delete-model-btn" title="Delete (Del/Backspace)"><i data-lucide="trash-2"></i></button>
+        </div>
+        <p><small>Click empty space to deselect • ESC to deselect • Del/Backspace to delete • X to toggle space</small></p>
+        </div>
+      </div>
+      
+      <div id="camera-controls-panel" style="display: none;">
+        <div class="panel-header">
+          <h3>Camera Settings</h3>
+          <button class="collapse-btn" id="camera-collapse-btn" title="Collapse Panel"><i data-lucide="chevron-up"></i></button>
+        </div>
+        <div class="panel-content" id="camera-content">
+        <div id="camera-settings">
+          <label for="focal-length">Focal Length (mm):</label>
+          <input type="range" id="focal-length" min="8" max="200" value="50" />
+          <span id="focal-length-value">50mm</span>
+          
+          <label for="sensor-size">Sensor Width (mm) - 16:9:</label>
+          <input type="range" id="sensor-size" min="12" max="36" value="24" />
+          <span id="sensor-size-value">24mm</span>
+        </div>
+        <div id="camera-transform-space-toggle">
+          <label>Transform Space:</label>
+          <button id="camera-world-btn" class="space-btn active" title="World Space (X)">World</button>
+          <button id="camera-local-btn" class="space-btn" title="Local Space (X)">Local</button>
+        </div>
+        <div id="camera-buttons">
+          <button id="camera-move-btn" title="Move Camera (G)"><i data-lucide="move-3d"></i></button>
+          <button id="camera-rotate-btn" title="Rotate Camera (R)"><i data-lucide="rotate-3d"></i></button>
+          <button id="fullscreen-btn" title="Fullscreen Preview"><i data-lucide="fullscreen"></i></button>
+          <button id="capture-btn" title="Capture PNG"><i data-lucide="download"></i></button>
+        </div>
+        <div id="camera-delete-row">
+          <button id="delete-camera-btn" title="Delete Camera"><i data-lucide="trash-2"></i></button>
+        </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="camera-viewport" style="display: none;">
+      <h4>Camera Preview</h4>
+      <div id="viewport-container"></div>
+    </div>
+    
+    <div id="progress-container">
+      <div>Loading...</div>
+    </div>
+    
+		<script type="module" src="./main.js"></script>
+    <script>
+      // Initialize Lucide icons after DOM is loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+      });
+    </script>
+	</body>
+</html>
