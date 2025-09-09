@@ -115,7 +115,10 @@
     </div>
     
     <div id="camera-viewport" style="display: none;">
-      <h4>Camera Preview</h4>
+      <div class="viewport-header">
+        <h4>Camera Preview</h4>
+        <button id="pin-preview-btn" class="pin-btn" title="Pin Preview"><i data-lucide="pin"></i></button>
+      </div>
       <div id="viewport-container"></div>
     </div>
     
@@ -123,7 +126,7 @@
       <div>Loading...</div>
     </div>
     
-		<script type="module" src="./main.js"></script>
+		<script type="module" src="./main_oop.js"></script>
     <script>
       // Initialize Lucide icons after DOM is loaded
       document.addEventListener('DOMContentLoaded', function() {
