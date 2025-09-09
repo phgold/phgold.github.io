@@ -26,6 +26,16 @@
     
     <div id="main-tools-panel">
       <div class="tool-section">
+        <h3>LED Studio Selection</h3>
+        <div class="tool-content">
+          <label for="studio-dropdown">Select Studio:</label>
+          <select id="studio-dropdown">
+            <option value="">Loading studios...</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="tool-section">
         <h3>Screen Controls</h3>
         <div class="tool-content">
           <label for="file-input">Custom Background:</label>
@@ -41,11 +51,29 @@
       </div>
       
       <div class="tool-section">
-        <h3>3D Model Upload</h3>
+        <h3>Add Props to Scene</h3>
         <div class="tool-content">
-          <label for="gltf-input">Upload GLB Model:</label>
-          <input type="file" id="gltf-input" accept=".gltf,.glb" />
-          <button id="place-model-button" disabled title="Add Model to Scene"><i data-lucide="plus"></i> Add to Scene</button>
+          
+          <div class="props-subsection">
+            <label for="props-dropdown">Props Library:</label>
+            <div class="custom-dropdown" id="props-custom-dropdown">
+              <div class="dropdown-selected" id="dropdown-selected">
+                <span>Select a prop...</span>
+                <i data-lucide="chevron-down" class="dropdown-arrow"></i>
+              </div>
+              <div class="dropdown-options" id="dropdown-options">
+                <div class="dropdown-option loading" data-value="">Loading props...</div>
+              </div>
+            </div>
+            <button id="add-prop-button" disabled title="Add Prop to Scene"><i data-lucide="plus"></i> Add to Scene</button>
+          </div>
+          
+          <div class="props-subsection">
+            <label for="gltf-input">Upload Custom Model:</label>
+            <input type="file" id="gltf-input" accept=".gltf,.glb" />
+            <button id="place-model-button" disabled title="Add Model to Scene"><i data-lucide="plus"></i> Add to Scene</button>
+          </div>
+          
         </div>
       </div>
       

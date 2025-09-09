@@ -10,7 +10,7 @@ function generateUniqueId() {
 
 // LEDScreen Class - Manages the LED screen with its textures and properties
 class LEDScreen {
-  constructor(mesh, materialName = "M_WhiteScreen") {
+  constructor(mesh, materialName = "M_WhiteScreen", app = null) {
     this.mesh = mesh;
     this.materialName = materialName;
     this.material = null;
@@ -20,8 +20,10 @@ class LEDScreen {
     this.currentTexture = null;
     this.brightness = 1.0;
     this.aspectRatio = 10 / 3;
+    this.app = app; // Reference to main app for global state
     
     this.findTargetMaterial();
+    this.applyGlobalState();
   }
   
   findTargetMaterial() {
@@ -39,7 +41,9 @@ class LEDScreen {
             this.originalEmissiveIntensity = mat.emissiveIntensity || 1;
             this.brightness = this.originalEmissiveIntensity;
             
-            console.log('Found LED screen material:', this.materialName);
+            console.log('Found LED screen material:', this.materialName, 'on mesh:', child.name || 'unnamed');
+            console.log('Original texture:', this.originalBaseColorTexture);
+            console.log('Original emissive texture:', this.originalEmissiveTexture);
           }
         });
       }
@@ -63,6 +67,26 @@ class LEDScreen {
     });
   }
   
+  applyGlobalState() {
+    if (!this.material || !this.app) return;
+    
+    // Apply global brightness (always apply brightness)
+    if (this.app.globalBrightness !== null && this.app.globalBrightness !== undefined) {
+      this.material.emissiveIntensity = this.app.globalBrightness;
+      this.brightness = this.app.globalBrightness;
+    }
+    
+    // Apply global custom texture if it exists
+    if (this.app.globalCustomTexture) {
+      this.material.map = this.app.globalCustomTexture;
+      this.material.emissiveMap = this.app.globalCustomEmissiveTexture;
+      this.currentTexture = this.app.globalCustomTexture;
+      console.log('Applied global custom texture to new studio');
+    }
+    
+    this.material.needsUpdate = true;
+  }
+
   setCustomTexture(file, callback) {
     if (!this.material) {
       console.warn('No material found to apply texture');
@@ -76,12 +100,22 @@ class LEDScreen {
         texture.wrapT = THREE.RepeatWrapping;
         texture.flipY = false;
         
+        // Mark as custom texture for persistence across studio changes
+        texture.userData = texture.userData || {};
+        texture.userData.isCustomTexture = true;
+        
         this.material.map = texture;
         this.material.emissiveMap = texture;
         this.material.needsUpdate = true;
         this.currentTexture = texture;
         
-        console.log('Custom texture applied to LED screen');
+        // Store in global state for persistence across studio changes
+        if (this.app) {
+          this.app.globalCustomTexture = texture;
+          this.app.globalCustomEmissiveTexture = texture;
+        }
+        
+        console.log('Custom texture applied to LED screen and stored globally');
         if (callback) callback();
       });
     });
@@ -93,6 +127,11 @@ class LEDScreen {
     this.brightness = intensity;
     this.material.emissiveIntensity = intensity;
     this.material.needsUpdate = true;
+    
+    // Update global brightness
+    if (this.app) {
+      this.app.globalBrightness = intensity;
+    }
   }
   
   resetToOriginal() {
@@ -105,6 +144,13 @@ class LEDScreen {
     
     this.brightness = this.originalEmissiveIntensity;
     this.currentTexture = null;
+    
+    // Clear global custom texture state
+    if (this.app) {
+      this.app.globalCustomTexture = null;
+      this.app.globalCustomEmissiveTexture = null;
+      this.app.globalBrightness = this.originalEmissiveIntensity;
+    }
     
     console.log('LED screen reset to original');
   }
@@ -360,7 +406,7 @@ class CinemaCamera {
     }
   }
   
-  capture() {
+  capture(app) {
     // Create temporary high-resolution renderer
     const captureRenderer = new THREE.WebGLRenderer({ 
       antialias: true,
@@ -372,7 +418,7 @@ class CinemaCamera {
     captureRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     
     // Store and hide camera visuals
-    const originalVisibilities = this.hideCameraVisuals();
+    const originalVisibilities = app.hideCameraVisualsForCapture();
     
     // Render and download
     captureRenderer.render(this.scene, this.camera);
@@ -384,21 +430,10 @@ class CinemaCamera {
     link.click();
     
     // Restore visibilities and cleanup
-    this.restoreCameraVisuals(originalVisibilities);
+    app.restoreCameraVisualsAfterCapture(originalVisibilities);
     captureRenderer.dispose();
     
     console.log('Camera view captured:', this.name);
-  }
-  
-  hideCameraVisuals() {
-    // This method would be called by the app to hide all camera visuals
-    // Implementation depends on the app's camera management
-    return [];
-  }
-  
-  restoreCameraVisuals(visibilities) {
-    // Restore camera visibilities
-    // Implementation depends on the app's camera management
   }
   
   delete() {
@@ -410,6 +445,345 @@ class CinemaCamera {
     this.helper.dispose();
     
     console.log('CinemaCamera deleted:', this.name);
+  }
+}
+
+// LEDStudioManager Class - Manages different LED studio environments
+class LEDStudioManager {
+  constructor(scene) {
+    this.scene = scene;
+    this.studioPath = 'public/LED_Studio/';
+    this.availableStudios = [];
+    this.currentStudio = null;
+    this.currentStudioMesh = null;
+    this.isLoaded = false;
+  }
+  
+  async loadAvailableStudios() {
+    try {
+      // Define known studios based on folder structure
+      const knownStudios = [
+        { name: 'MADRID_15X5', displayName: 'Madrid 15x5', gltfFile: 'LED_Studio_Madrid.gltf' },
+        { name: 'BARCELONA', displayName: 'Barcelona', gltfFile: 'LED_Studio_Barcelona.gltf' }
+      ];
+      
+      this.availableStudios = [];
+      
+      for (const studio of knownStudios) {
+        const studioData = await this.loadStudioData(studio);
+        if (studioData) {
+          this.availableStudios.push(studioData);
+        }
+      }
+      
+      this.isLoaded = true;
+      console.log('LED Studios loaded:', this.availableStudios);
+      return this.availableStudios;
+      
+    } catch (error) {
+      console.error('Error loading LED studios:', error);
+      return [];
+    }
+  }
+  
+  async loadStudioData(studioInfo) {
+    try {
+      const studioPath = `${this.studioPath}${studioInfo.name}/${studioInfo.gltfFile}`;
+      
+      // Check if studio file exists
+      const exists = await this.checkFileExists(studioPath);
+      
+      if (exists) {
+        return {
+          name: studioInfo.name,
+          displayName: studioInfo.displayName,
+          gltfPath: studioPath,
+          folderPath: `${this.studioPath}${studioInfo.name}/`
+        };
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.warn(`Could not load studio data for ${studioInfo.name}:`, error);
+      return null;
+    }
+  }
+  
+  async checkFileExists(url) {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  getStudios() {
+    return this.availableStudios;
+  }
+  
+  getStudioByName(name) {
+    return this.availableStudios.find(studio => studio.name === name);
+  }
+  
+  getCurrentStudio() {
+    return this.currentStudio;
+  }
+  
+  async switchStudio(studioName, preserveScreenState = true) {
+    const studio = this.getStudioByName(studioName);
+    if (!studio) {
+      console.error('Studio not found:', studioName);
+      return false;
+    }
+    
+    console.log('Switching to studio:', studio.displayName);
+    
+    try {
+      // Store current screen state if preserving
+      let screenState = null;
+      if (preserveScreenState && this.currentStudioMesh) {
+        screenState = this.extractScreenState(this.currentStudioMesh);
+      }
+      
+      // Remove current studio mesh if exists
+      if (this.currentStudioMesh) {
+        this.scene.remove(this.currentStudioMesh);
+        this.disposeStudioMesh(this.currentStudioMesh);
+      }
+      
+      // Load new studio
+      const newStudioMesh = await this.loadStudioMesh(studio);
+      if (!newStudioMesh) {
+        throw new Error(`Failed to load studio: ${studio.displayName}`);
+      }
+      
+      // Add to scene
+      this.scene.add(newStudioMesh);
+      this.currentStudioMesh = newStudioMesh;
+      this.currentStudio = studio;
+      
+      // Restore screen state if preserved
+      if (preserveScreenState && screenState) {
+        await this.applyScreenState(newStudioMesh, screenState);
+      }
+      
+      console.log('Successfully switched to studio:', studio.displayName);
+      return { success: true, mesh: newStudioMesh, screenState };
+      
+    } catch (error) {
+      console.error('Error switching studio:', error);
+      return false;
+    }
+  }
+  
+  loadStudioMesh(studio) {
+    return new Promise((resolve, reject) => {
+      const loader = new GLTFLoader();
+      loader.load(studio.gltfPath, (gltf) => {
+        const mesh = gltf.scene;
+        
+        // Configure mesh
+        mesh.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = false;
+            child.receiveShadow = true;
+          }
+        });
+        
+        mesh.position.set(0, 0, 0);
+        resolve(mesh);
+        
+      }, (xhr) => {
+        if (xhr.lengthComputable) {
+          const percentComplete = xhr.loaded / xhr.total * 100;
+          console.log(`Loading studio: ${percentComplete.toFixed(1)}%`);
+        }
+      }, (error) => {
+        reject(error);
+      });
+    });
+  }
+  
+  extractScreenState(studioMesh) {
+    const screenState = {
+      currentTexture: null,
+      emissiveTexture: null,
+      emissiveIntensity: null,
+      baseColorTexture: null,
+      hasCustomTexture: false
+    };
+    
+    // Find the screen material (assuming same material name pattern)
+    studioMesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        
+        materials.forEach((material) => {
+          if (material.name === "M_WhiteScreen") {
+            screenState.currentTexture = material.map;
+            screenState.emissiveTexture = material.emissiveMap;
+            screenState.emissiveIntensity = material.emissiveIntensity;
+            screenState.baseColorTexture = material.map;
+            
+            // Check if this is a custom texture (not the original studio texture)
+            // We'll identify custom textures by checking if they have a data URL or custom properties
+            if (material.map && (material.map.userData?.isCustomTexture || 
+                material.map.image?.src?.startsWith('data:'))) {
+              screenState.hasCustomTexture = true;
+            }
+          }
+        });
+      }
+    });
+    
+    return screenState;
+  }
+  
+  applyScreenState(newStudioMesh, screenState) {
+    return new Promise((resolve) => {
+      // Find the screen material in new studio
+      newStudioMesh.traverse((child) => {
+        if (child.isMesh && child.material) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          
+          materials.forEach((material) => {
+            if (material.name === "M_WhiteScreen") {
+              // Always apply brightness setting
+              if (screenState.emissiveIntensity !== null && screenState.emissiveIntensity !== undefined) {
+                material.emissiveIntensity = screenState.emissiveIntensity;
+              }
+              
+              // Apply custom texture if one exists
+              if (screenState.hasCustomTexture && screenState.currentTexture) {
+                material.map = screenState.currentTexture;
+                material.emissiveMap = screenState.emissiveTexture;
+                console.log('Applied custom texture to new studio');
+              }
+              
+              material.needsUpdate = true;
+            }
+          });
+        }
+      });
+      
+      resolve();
+    });
+  }
+  
+  disposeStudioMesh(mesh) {
+    mesh.traverse((child) => {
+      if (child.isMesh) {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(material => {
+              // Don't dispose textures that might be reused (screen textures)
+              if (material.name !== "M_WhiteScreen") {
+                if (material.map) material.map.dispose();
+                if (material.normalMap) material.normalMap.dispose();
+                if (material.emissiveMap) material.emissiveMap.dispose();
+              }
+              material.dispose();
+            });
+          } else {
+            // Don't dispose textures that might be reused (screen textures)
+            if (child.material.name !== "M_WhiteScreen") {
+              if (child.material.map) child.material.map.dispose();
+              if (child.material.normalMap) child.material.normalMap.dispose();
+              if (child.material.emissiveMap) child.material.emissiveMap.dispose();
+            }
+            child.material.dispose();
+          }
+        }
+      }
+    });
+  }
+}
+
+// PropsLibrary Class - Manages the props library system
+class PropsLibrary {
+  constructor() {
+    this.propsPath = 'public/props/';
+    this.availableProps = [];
+    this.isLoaded = false;
+  }
+  
+  async loadPropsLibrary() {
+    try {
+      // Since we can't directly list directory contents in a browser,
+      // we'll define the known props and try to load them
+      const knownProps = ['car', 'woman-sport'];
+      
+      this.availableProps = [];
+      
+      for (const propName of knownProps) {
+        const propData = await this.loadPropData(propName);
+        if (propData) {
+          this.availableProps.push(propData);
+        }
+      }
+      
+      this.isLoaded = true;
+      console.log('Props library loaded:', this.availableProps);
+      return this.availableProps;
+      
+    } catch (error) {
+      console.error('Error loading props library:', error);
+      return [];
+    }
+  }
+  
+  async loadPropData(propName) {
+    try {
+      const basePath = `${this.propsPath}${propName}/`;
+      const glbPath = `${basePath}${propName}.glb`;
+      const thumbnailPath = `${basePath}${propName}_thumbnail.png`;
+      
+      // Check if files exist by attempting to load thumbnail
+      const thumbnailExists = await this.checkFileExists(thumbnailPath);
+      const glbExists = await this.checkFileExists(glbPath);
+      
+      if (thumbnailExists && glbExists) {
+        return {
+          name: propName,
+          displayName: this.formatDisplayName(propName),
+          glbPath: glbPath,
+          thumbnailPath: thumbnailPath
+        };
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.warn(`Could not load prop data for ${propName}:`, error);
+      return null;
+    }
+  }
+  
+  async checkFileExists(url) {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  formatDisplayName(propName) {
+    return propName
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  
+  getProps() {
+    return this.availableProps;
+  }
+  
+  getPropByName(name) {
+    return this.availableProps.find(prop => prop.name === name);
   }
 }
 
@@ -425,10 +799,17 @@ class LEDStageApp {
     
     // Systems
     this.ledScreen = null;
+    this.studioManager = new LEDStudioManager(this.scene);
+    this.propsLibrary = new PropsLibrary();
     this.sceneObjects = new Map(); // id -> SceneObject
     this.cinemaCameras = new Map(); // id -> CinemaCamera
     this.selectedObject = null; // Can be SceneObject or CinemaCamera
     this.cameraCounter = 1;
+    
+    // Global custom texture state
+    this.globalCustomTexture = null;
+    this.globalCustomEmissiveTexture = null;
+    this.globalBrightness = 1.0;
     
     // Interaction
     this.raycaster = new THREE.Raycaster();
@@ -450,7 +831,9 @@ class LEDStageApp {
     this.setupControls();
     this.setupLighting();
     this.setupEventListeners();
-    this.loadLEDStage();
+    this.initializeStudioManager();
+    this.initializePropsLibrary();
+    this.initializeCustomDropdown();
     this.animate();
   }
   
@@ -508,34 +891,108 @@ class LEDStageApp {
     document.addEventListener('keydown', (event) => this.onKeyDown(event), false);
   }
   
-  loadLEDStage() {
-    const loader = new GLTFLoader().setPath('public/LED_Studio/');
-    loader.load('LED_Studio_Madrid.gltf', (gltf) => {
-      console.log('Loading LED stage model');
-      const mesh = gltf.scene;
+  // Initialize studio manager and load available studios
+  async initializeStudioManager() {
+    try {
+      // Load available studios
+      await this.studioManager.loadAvailableStudios();
       
-      mesh.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = false;
-          child.receiveShadow = true;
-        }
-      });
+      // Populate studio dropdown
+      this.populateStudioDropdown();
       
-      mesh.position.set(0, 0, 0);
-      this.scene.add(mesh);
+      // Load default studio (Madrid)
+      const defaultStudio = 'MADRID_15X5';
+      const result = await this.studioManager.switchStudio(defaultStudio, false);
       
-      // Create LED screen system
-      this.ledScreen = new LEDScreen(mesh);
+      if (result && result.success) {
+        // Create LED screen system with the loaded studio mesh
+        this.ledScreen = new LEDScreen(result.mesh, "M_WhiteScreen", this);
+        
+        // Initialize global brightness from the original studio texture
+        this.globalBrightness = this.ledScreen.originalEmissiveIntensity;
+        
+        // Update dropdown selection
+        document.getElementById('studio-dropdown').value = defaultStudio;
+        
+        console.log('Default studio loaded successfully');
+      }
       
       // Hide loading screen
       document.getElementById('progress-container').style.display = 'none';
       
-      console.log('LED stage loaded successfully');
-    }, (xhr) => {
-      console.log(`Loading ${xhr.loaded / xhr.total * 100}%`);
-    }, (error) => {
-      console.error('Error loading LED stage:', error);
+    } catch (error) {
+      console.error('Error initializing studio manager:', error);
+      document.getElementById('progress-container').style.display = 'none';
+    }
+  }
+  
+  // Populate studio dropdown
+  populateStudioDropdown() {
+    const dropdown = document.getElementById('studio-dropdown');
+    const studios = this.studioManager.getStudios();
+    
+    // Clear existing options
+    dropdown.innerHTML = '';
+    
+    if (studios.length === 0) {
+      dropdown.innerHTML = '<option value="">No studios available</option>';
+      return;
+    }
+    
+    // Add studio options
+    studios.forEach(studio => {
+      const option = document.createElement('option');
+      option.value = studio.name;
+      option.textContent = studio.displayName;
+      dropdown.appendChild(option);
     });
+    
+    console.log('Studio dropdown populated with', studios.length, 'studios');
+  }
+  
+  // Handle studio change
+  async onStudioChange(studioName) {
+    if (!studioName) return;
+    
+    console.log('Changing studio to:', studioName);
+    
+    try {
+      // Store current screen state before switching
+      let currentBrightness = this.globalBrightness;
+      let hasCustomTexture = this.globalCustomTexture !== null;
+      
+      // Switch studio without preserving screen state (we'll handle it manually)
+      const result = await this.studioManager.switchStudio(studioName, false);
+      
+      if (result && result.success) {
+        // Create new LED screen system to use new studio mesh
+        this.ledScreen = new LEDScreen(result.mesh, "M_WhiteScreen", this);
+        
+        // Apply global texture state if we have custom texture
+        if (hasCustomTexture && this.globalCustomTexture) {
+          this.ledScreen.material.map = this.globalCustomTexture;
+          this.ledScreen.material.emissiveMap = this.globalCustomEmissiveTexture;
+          this.ledScreen.currentTexture = this.globalCustomTexture;
+          this.ledScreen.material.needsUpdate = true;
+          console.log('Applied global custom texture to new studio');
+        }
+        
+        // Apply brightness setting
+        this.ledScreen.setBrightness(currentBrightness);
+        
+        // Update UI controls to reflect current brightness
+        const emissiveSlider = document.getElementById('emissive-slider');
+        const emissiveValue = document.getElementById('emissive-value');
+        emissiveSlider.value = currentBrightness;
+        emissiveValue.textContent = currentBrightness.toFixed(1);
+        
+        console.log('Studio changed successfully to:', studioName);
+      } else {
+        console.error('Failed to change studio');
+      }
+    } catch (error) {
+      console.error('Error changing studio:', error);
+    }
   }
   
   animate() {
@@ -653,7 +1110,11 @@ class LEDStageApp {
   showModelControls() {
     document.getElementById('model-controls').style.display = 'block';
     document.getElementById('camera-controls-panel').style.display = 'none';
-    document.getElementById('camera-viewport').style.display = 'none';
+    
+    // Only hide camera viewport if no camera is pinned
+    if (!this.pinnedCamera) {
+      document.getElementById('camera-viewport').style.display = 'none';
+    }
   }
   
   showCameraControls() {
@@ -816,6 +1277,7 @@ class LEDStageApp {
     
     const key = event.key.toLowerCase();
     
+    // Common shortcuts for both models and cameras
     switch (key) {
       case 'delete':
       case 'backspace':
@@ -829,15 +1291,31 @@ class LEDStageApp {
         this.transformControls.setMode('rotate');
         this.updateControlButtons('rotate');
         break;
-      case 's':
-        if (this.selectedObject instanceof SceneObject) {
-          this.transformControls.setMode('scale');
-          this.updateControlButtons('scale');
-        }
-        break;
       case 'x':
         this.toggleTransformSpace();
         break;
+    }
+    
+    // Model-specific shortcuts
+    if (this.selectedObject instanceof SceneObject) {
+      switch (key) {
+        case 's':
+          this.transformControls.setMode('scale');
+          this.updateControlButtons('scale');
+          break;
+      }
+    }
+    
+    // Camera-specific shortcuts
+    if (this.selectedObject instanceof CinemaCamera) {
+      switch (key) {
+        case 'f':
+          this.enterFullscreen();
+          break;
+        case 'c':
+          this.selectedObject.capture(this);
+          break;
+      }
     }
   }
   
@@ -908,6 +1386,140 @@ class LEDStageApp {
     this.selectedObject = null;
   }
   
+  // Hide camera visuals for clean capture
+  hideCameraVisualsForCapture() {
+    const originalVisibilities = [];
+    this.cinemaCameras.forEach(cam => {
+      originalVisibilities.push({
+        helper: cam.helper.visible,
+        mesh: cam.mesh.visible
+      });
+      cam.helper.visible = false;
+      cam.mesh.visible = false;
+    });
+    
+    const transformControlsVisible = this.transformControls.visible;
+    this.transformControls.visible = false;
+    
+    return { cameras: originalVisibilities, transformControls: transformControlsVisible };
+  }
+  
+  // Restore camera visuals after capture
+  restoreCameraVisualsAfterCapture(visibilities) {
+    this.transformControls.visible = visibilities.transformControls;
+    
+    let index = 0;
+    this.cinemaCameras.forEach(cam => {
+      if (visibilities.cameras[index]) {
+        cam.helper.visible = visibilities.cameras[index].helper;
+        cam.mesh.visible = visibilities.cameras[index].mesh;
+      }
+      index++;
+    });
+  }
+  
+  // Enter fullscreen camera view
+  enterFullscreen() {
+    if (!this.selectedObject || !(this.selectedObject instanceof CinemaCamera)) return;
+    
+    this.isFullscreen = true;
+    
+    // Hide main tools panel and model controls, but keep camera controls
+    document.getElementById('main-tools-panel').style.display = 'none';
+    document.getElementById('heading').style.display = 'none';
+    document.getElementById('model-controls').style.display = 'none';
+    
+    // Hide regular camera viewport but keep controls visible
+    if (!this.pinnedCamera) {
+      document.getElementById('camera-viewport').style.display = 'none';
+    }
+    
+    // Keep camera controls visible but update fullscreen button
+    const selectionControlsArea = document.getElementById('selection-controls-area');
+    selectionControlsArea.style.display = 'block';
+    selectionControlsArea.style.zIndex = '1001';
+    document.getElementById('camera-controls-panel').style.display = 'block';
+    document.getElementById('fullscreen-btn').classList.add('active');
+    
+    // Create fullscreen overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'fullscreen-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'black';
+    overlay.style.zIndex = '999';
+    
+    // Create fullscreen renderer
+    const fullscreenRenderer = new THREE.WebGLRenderer({ antialias: true });
+    fullscreenRenderer.setSize(window.innerWidth, window.innerHeight);
+    fullscreenRenderer.setClearColor(0x000000);
+    fullscreenRenderer.shadowMap.enabled = true;
+    fullscreenRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    
+    overlay.appendChild(fullscreenRenderer.domElement);
+    document.body.appendChild(overlay);
+    
+    // Render loop for fullscreen
+    const renderFullscreen = () => {
+      if (this.isFullscreen && this.selectedObject instanceof CinemaCamera) {
+        // Hide camera objects and transform controls
+        this.cinemaCameras.forEach(cam => {
+          cam.helper.visible = false;
+          cam.mesh.visible = false;
+        });
+        this.transformControls.visible = false;
+        
+        fullscreenRenderer.render(this.scene, this.selectedObject.camera);
+        requestAnimationFrame(renderFullscreen);
+      }
+    };
+    renderFullscreen();
+    
+    console.log('Entered fullscreen camera view');
+  }
+  
+  // Exit fullscreen camera view
+  exitFullscreen() {
+    if (!this.isFullscreen) return;
+    
+    this.isFullscreen = false;
+    
+    // Remove fullscreen overlay
+    const overlay = document.getElementById('fullscreen-overlay');
+    if (overlay) {
+      document.body.removeChild(overlay);
+    }
+    
+    // Restore UI panels
+    document.getElementById('main-tools-panel').style.display = 'block';
+    document.getElementById('heading').style.display = 'block';
+    
+    if (this.selectedObject instanceof CinemaCamera) {
+      const selectionControlsArea = document.getElementById('selection-controls-area');
+      selectionControlsArea.style.zIndex = '1000';
+      document.getElementById('camera-controls-panel').style.display = 'block';
+      
+      // Show camera viewport if pinned or if camera is selected
+      if (this.pinnedCamera || this.selectedObject instanceof CinemaCamera) {
+        document.getElementById('camera-viewport').style.display = 'block';
+      }
+      
+      this.selectedObject.helper.visible = true;
+      this.selectedObject.mesh.visible = true;
+      this.transformControls.visible = true;
+      document.getElementById('fullscreen-btn').classList.remove('active');
+    }
+    
+    if (this.selectedObject instanceof SceneObject) {
+      document.getElementById('model-controls').style.display = 'block';
+    }
+    
+    console.log('Exited fullscreen camera view');
+  }
+
   onWindowResize() {
     this.mainCamera.aspect = window.innerWidth / window.innerHeight;
     this.mainCamera.updateProjectionMatrix();
@@ -923,6 +1535,184 @@ class LEDStageApp {
     return camera;
   }
   
+  // Initialize props library
+  async initializePropsLibrary() {
+    try {
+      await this.propsLibrary.loadPropsLibrary();
+      this.populatePropsDropdown();
+    } catch (error) {
+      console.error('Error initializing props library:', error);
+      this.populatePropsDropdown([]); // Show empty state
+    }
+  }
+  
+  // Populate the custom props dropdown with available props
+  populatePropsDropdown(props = null) {
+    const dropdownOptions = document.getElementById('dropdown-options');
+    const propsToShow = props || this.propsLibrary.getProps();
+    
+    // Clear existing options
+    dropdownOptions.innerHTML = '';
+    
+    if (propsToShow.length === 0) {
+      dropdownOptions.innerHTML = '<div class="dropdown-option loading" data-value="">No props available</div>';
+      return;
+    }
+    
+    // Add prop options with thumbnails
+    propsToShow.forEach(prop => {
+      const option = document.createElement('div');
+      option.className = 'dropdown-option';
+      option.setAttribute('data-value', prop.name);
+      
+      const thumbnail = document.createElement('div');
+      thumbnail.className = 'dropdown-option-thumbnail';
+      thumbnail.style.backgroundImage = `url('${prop.thumbnailPath}')`;
+      
+      const text = document.createElement('span');
+      text.className = 'dropdown-option-text';
+      text.textContent = prop.displayName;
+      
+      option.appendChild(thumbnail);
+      option.appendChild(text);
+      dropdownOptions.appendChild(option);
+    });
+    
+    console.log('Props dropdown populated with', propsToShow.length, 'props');
+  }
+  
+  // Handle custom dropdown selection
+  onPropsDropdownChange(selectedPropName) {
+    const dropdownSelected = document.getElementById('dropdown-selected');
+    const addPropButton = document.getElementById('add-prop-button');
+    
+    if (!selectedPropName) {
+      // No prop selected
+      dropdownSelected.querySelector('span').textContent = 'Select a prop...';
+      addPropButton.disabled = true;
+      return;
+    }
+    
+    const selectedProp = this.propsLibrary.getPropByName(selectedPropName);
+    if (selectedProp) {
+      // Update selected display
+      dropdownSelected.querySelector('span').textContent = selectedProp.displayName;
+      addPropButton.disabled = false;
+    } else {
+      dropdownSelected.querySelector('span').textContent = 'Select a prop...';
+      addPropButton.disabled = true;
+    }
+  }
+  
+  // Initialize custom dropdown functionality
+  initializeCustomDropdown() {
+    const dropdown = document.getElementById('props-custom-dropdown');
+    const dropdownSelected = document.getElementById('dropdown-selected');
+    const dropdownOptions = document.getElementById('dropdown-options');
+    let selectedValue = '';
+    
+    // Toggle dropdown open/close
+    dropdownSelected.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = dropdownSelected.classList.contains('open');
+      
+      if (isOpen) {
+        this.closeCustomDropdown();
+      } else {
+        this.openCustomDropdown();
+      }
+    });
+    
+    // Handle option selection
+    dropdownOptions.addEventListener('click', (e) => {
+      const option = e.target.closest('.dropdown-option');
+      if (option && !option.classList.contains('loading')) {
+        const value = option.getAttribute('data-value');
+        
+        // Update selection
+        dropdownOptions.querySelectorAll('.dropdown-option').forEach(opt => {
+          opt.classList.remove('selected');
+        });
+        option.classList.add('selected');
+        
+        selectedValue = value;
+        this.onPropsDropdownChange(value);
+        this.closeCustomDropdown();
+      }
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target)) {
+        this.closeCustomDropdown();
+      }
+    });
+    
+    // Store selected value getter
+    this.getSelectedPropValue = () => selectedValue;
+    this.resetPropsDropdown = () => {
+      selectedValue = '';
+      this.onPropsDropdownChange('');
+      dropdownOptions.querySelectorAll('.dropdown-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+    };
+  }
+  
+  openCustomDropdown() {
+    const dropdownSelected = document.getElementById('dropdown-selected');
+    const dropdownOptions = document.getElementById('dropdown-options');
+    
+    dropdownSelected.classList.add('open');
+    dropdownOptions.classList.add('open');
+  }
+  
+  closeCustomDropdown() {
+    const dropdownSelected = document.getElementById('dropdown-selected');
+    const dropdownOptions = document.getElementById('dropdown-options');
+    
+    dropdownSelected.classList.remove('open');
+    dropdownOptions.classList.remove('open');
+  }
+  
+  // Load prop from library
+  loadPropFromLibrary(propName) {
+    const prop = this.propsLibrary.getPropByName(propName);
+    if (!prop) {
+      console.error('Prop not found:', propName);
+      return;
+    }
+    
+    const loader = new GLTFLoader();
+    
+    loader.load(prop.glbPath, (gltf) => {
+      const modelMesh = gltf.scene;
+      
+      modelMesh.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      modelMesh.position.set(0, 0, 0);
+      this.scene.add(modelMesh);
+      
+      const sceneObject = new SceneObject(modelMesh, prop.displayName);
+      this.sceneObjects.set(sceneObject.id, sceneObject);
+      
+      console.log('Successfully loaded prop:', prop.displayName);
+      
+    }, (xhr) => {
+      if (xhr.lengthComputable) {
+        const percentComplete = xhr.loaded / xhr.total * 100;
+        console.log(`Loading prop ${prop.displayName}: ${percentComplete.toFixed(1)}%`);
+      }
+    }, (error) => {
+      console.error('Error loading prop:', error);
+    });
+  }
+
   loadGLTFModel(file) {
     const fileURL = URL.createObjectURL(file);
     const loader = new GLTFLoader();
@@ -976,6 +1766,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // UI Event Handlers
 function initializeUI() {
+  // Studio selection controls
+  const studioDropdown = document.getElementById('studio-dropdown');
+  studioDropdown.addEventListener('change', (event) => {
+    app.onStudioChange(event.target.value);
+  });
+
   // LED Screen controls
   const fileInput = document.getElementById('file-input');
   const resetButton = document.getElementById('reset-button');
@@ -1029,6 +1825,18 @@ function initializeUI() {
     }
   });
   
+  // Props library controls
+  const addPropButton = document.getElementById('add-prop-button');
+  
+  addPropButton.addEventListener('click', () => {
+    const selectedPropName = app.getSelectedPropValue();
+    if (selectedPropName) {
+      app.loadPropFromLibrary(selectedPropName);
+      // Reset dropdown after adding
+      app.resetPropsDropdown();
+    }
+  });
+
   // Camera controls
   document.getElementById('add-camera-btn').addEventListener('click', () => {
     app.createCinemaCamera();
@@ -1123,9 +1931,17 @@ function initializeUI() {
   });
   
   // Camera specific controls
+  document.getElementById('fullscreen-btn').addEventListener('click', () => {
+    if (app.isFullscreen) {
+      app.exitFullscreen();
+    } else {
+      app.enterFullscreen();
+    }
+  });
+  
   document.getElementById('capture-btn').addEventListener('click', () => {
     if (app.selectedObject instanceof CinemaCamera) {
-      app.selectedObject.capture();
+      app.selectedObject.capture(app);
     }
   });
   
