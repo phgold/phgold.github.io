@@ -1783,6 +1783,13 @@ function initializeUI() {
     if (file && app.ledScreen) {
       app.ledScreen.setCustomTexture(file, () => {
         console.log('Texture applied successfully');
+        
+        // Reset transform controls to default when new texture is loaded
+        bgPosX.value = '0';
+        bgPosY.value = '0';
+        bgScaleX.value = '1';
+        bgScaleY.value = '1';
+        updateTextureTransforms();
       });
     }
   });
@@ -1793,6 +1800,12 @@ function initializeUI() {
       fileInput.value = '';
       emissiveSlider.value = app.ledScreen.originalEmissiveIntensity;
       emissiveValue.textContent = app.ledScreen.originalEmissiveIntensity.toFixed(1);
+      
+      // Reset transform controls
+      bgPosX.value = '0';
+      bgPosY.value = '0';
+      bgScaleX.value = '1';
+      bgScaleY.value = '1';
     }
   });
   
@@ -1801,6 +1814,71 @@ function initializeUI() {
     emissiveValue.textContent = intensity.toFixed(1);
     if (app.ledScreen) {
       app.ledScreen.setBrightness(intensity);
+    }
+  });
+  
+  // Background Transform Controls
+  const bgPosX = document.getElementById('bg-pos-x');
+  const bgPosY = document.getElementById('bg-pos-y');
+  const bgScaleX = document.getElementById('bg-scale-x');
+  const bgScaleY = document.getElementById('bg-scale-y');
+  
+  // Function to update texture transforms
+  function updateTextureTransforms() {
+    if (app.ledScreen && app.ledScreen.currentTexture) {
+      const texture = app.ledScreen.currentTexture;
+      
+      // Update offset (position)
+      texture.offset.set(
+        parseFloat(bgPosX.value),
+        parseFloat(bgPosY.value)
+      );
+      
+      // Update repeat (scale - inverse relationship)
+      texture.repeat.set(
+        parseFloat(bgScaleX.value),
+        parseFloat(bgScaleY.value)
+      );
+      
+      texture.needsUpdate = true;
+    }
+  }
+  
+  // Event listeners for input changes
+  [bgPosX, bgPosY, bgScaleX, bgScaleY].forEach(input => {
+    input.addEventListener('input', updateTextureTransforms);
+  });
+  
+  // Increment/Decrement button functionality
+  document.addEventListener('click', (event) => {
+    if (event.target.classList.contains('increment-btn') || event.target.closest('.increment-btn')) {
+      const btn = event.target.classList.contains('increment-btn') ? event.target : event.target.closest('.increment-btn');
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      if (input) {
+        const step = parseFloat(input.step) || 0.01;
+        const newValue = parseFloat(input.value) + step;
+        const min = parseFloat(input.min);
+        if (isNaN(min) || newValue >= min) {
+          input.value = newValue.toFixed(2);
+          updateTextureTransforms();
+        }
+      }
+    }
+    
+    if (event.target.classList.contains('decrement-btn') || event.target.closest('.decrement-btn')) {
+      const btn = event.target.classList.contains('decrement-btn') ? event.target : event.target.closest('.decrement-btn');
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      if (input) {
+        const step = parseFloat(input.step) || 0.01;
+        const newValue = parseFloat(input.value) - step;
+        const min = parseFloat(input.min);
+        if (isNaN(min) || newValue >= min) {
+          input.value = newValue.toFixed(2);
+          updateTextureTransforms();
+        }
+      }
     }
   });
   

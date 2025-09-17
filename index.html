@@ -18,24 +18,26 @@
     <link rel="stylesheet" href="./style.css">
 	</head>
   
-	<body>
+	<body> 
     <div id="heading">
       <h1>APPIA PREVIZ LITE</h1>
-      <div class="border"></div>
     </div>
-    
-    <div id="main-tools-panel">
-      <div class="tool-section">
-        <h3>LED Studio Selection</h3>
-        <div class="tool-content">
-          <label for="studio-dropdown">Select Studio:</label>
-          <select id="studio-dropdown">
-            <option value="">Loading studios...</option>
-          </select>
+
+    <div id="left-panel-container">
+      <div id="studio-selection-panel">
+        <div class="panel-section">
+          <h3>LED Studio Selection</h3>
+          <div class="panel-content">
+            <label for="studio-dropdown">Select Studio:</label>
+            <select id="studio-dropdown">
+              <option value="">Loading studios...</option>
+            </select>
+          </div>
         </div>
       </div>
-      
-      <div class="tool-section">
+
+      <div id="main-tools-panel">
+        <div class="tool-section">
         <h3>Screen Controls</h3>
         <div class="tool-content">
           <label for="file-input">Custom Background:</label>
@@ -47,6 +49,54 @@
           <label for="emissive-slider">Screen Brightness:</label>
           <input type="range" id="emissive-slider" min="0" max="5" step="0.1" value="1" />
           <span id="emissive-value">1.0</span>
+          
+          <div class="texture-transform-section">
+            <h4>Background Transform</h4>
+            
+            <div class="transform-row">
+              <label>Position:</label>
+              <div class="numerical-control-group">
+                <div class="numerical-control">
+                  <label for="bg-pos-x">X:</label>
+                  <div class="numerical-input-container">
+                    <button class="decrement-btn" data-target="bg-pos-x"><i data-lucide="minus">−</i></button>
+                    <input type="number" id="bg-pos-x" value="0" step="0.01" />
+                    <button class="increment-btn" data-target="bg-pos-x"><i data-lucide="plus">+</i></button>
+                  </div>
+                </div>
+                <div class="numerical-control">
+                  <label for="bg-pos-y">Y:</label>
+                  <div class="numerical-input-container">
+                    <button class="decrement-btn" data-target="bg-pos-y"><i data-lucide="minus">−</i></button>
+                    <input type="number" id="bg-pos-y" value="0" step="0.01" />
+                    <button class="increment-btn" data-target="bg-pos-y"><i data-lucide="plus">+</i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="transform-row">
+              <label>Scale:</label>
+              <div class="numerical-control-group">
+                <div class="numerical-control">
+                  <label for="bg-scale-x">X:</label>
+                  <div class="numerical-input-container">
+                    <button class="decrement-btn" data-target="bg-scale-x"><i data-lucide="minus">−</i></button>
+                    <input type="number" id="bg-scale-x" value="1" step="0.01" min="0.01" />
+                    <button class="increment-btn" data-target="bg-scale-x"><i data-lucide="plus">+</i></button>
+                  </div>
+                </div>
+                <div class="numerical-control">
+                  <label for="bg-scale-y">Y:</label>
+                  <div class="numerical-input-container">
+                    <button class="decrement-btn" data-target="bg-scale-y"><i data-lucide="minus">−</i></button>
+                    <input type="number" id="bg-scale-y" value="1" step="0.01" min="0.01" />
+                    <button class="increment-btn" data-target="bg-scale-y"><i data-lucide="plus">+</i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -55,7 +105,7 @@
         <div class="tool-content">
           
           <div class="props-subsection">
-            <label for="props-dropdown">Props Library:</label>
+            <label for="props-custom-dropdown">Props Library:</label>
             <div class="custom-dropdown" id="props-custom-dropdown">
               <div class="dropdown-selected" id="dropdown-selected">
                 <span>Select a prop...</span>
@@ -83,6 +133,7 @@
           <button id="add-camera-btn" title="Add New Camera"><i data-lucide="plus"></i><i data-lucide="video"></i> New Camera</button>
         </div>
       </div>
+    </div>
     </div>
     
     <div id="selection-controls-area">
