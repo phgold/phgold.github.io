@@ -38,8 +38,11 @@
 
       <div id="main-tools-panel">
         <div class="tool-section">
-        <h3>Screen Controls</h3>
-        <div class="tool-content">
+          <div class="panel-header">
+            <h3>Screen Controls</h3>
+            <button class="collapse-btn collapsed" id="screen-collapse-btn" title="Expand Panel"><i data-lucide="chevron-down"></i></button>
+          </div>
+        <div class="panel-content collapsed" id="screen-content">
           <label for="file-input">Custom Background:</label>
           <div class="file-input-row">
             <input type="file" id="file-input" accept="image/*" />
@@ -101,8 +104,11 @@
       </div>
       
       <div class="tool-section">
-        <h3>Add Props to Scene</h3>
-        <div class="tool-content">
+        <div class="panel-header">
+          <h3>Add Props to Scene</h3>
+          <button class="collapse-btn" id="props-collapse-btn" title="Collapse Panel"><i data-lucide="chevron-up"></i></button>
+        </div>
+        <div class="panel-content" id="props-content">
           
           <div class="props-subsection">
             <label for="props-custom-dropdown">Props Library:</label>
@@ -128,8 +134,11 @@
       </div>
       
       <div class="tool-section">
-        <h3>Cinema Cameras</h3>
-        <div class="tool-content">
+        <div class="panel-header">
+          <h3>Cinema Cameras</h3>
+          <button class="collapse-btn" id="cameras-collapse-btn" title="Collapse Panel"><i data-lucide="chevron-up"></i></button>
+        </div>
+        <div class="panel-content" id="cameras-content">
           <button id="add-camera-btn" title="Add New Camera"><i data-lucide="plus"></i><i data-lucide="video"></i> New Camera</button>
         </div>
       </div>

@@ -152,19 +152,32 @@ body {
   font-weight: 500;
 }
 
-.tool-content {
+.tool-content,
+.panel-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 0px;
+  transition: all 0.3s ease;
+  overflow: hidden;
 }
 
-.tool-content label {
+.panel-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.tool-content label,
+.panel-content label {
   font-size: 14px;
   color: #ccc;
   margin-bottom: 5px;
 }
 
-.tool-content input[type="file"] {
+.tool-content input[type="file"],
+.panel-content input[type="file"] {
   padding: 10px;
   border: 1px solid #555;
   border-radius: 6px;
@@ -174,12 +187,14 @@ body {
   cursor: pointer;
 }
 
-.tool-content input[type="file"]:hover {
+.tool-content input[type="file"]:hover,
+.panel-content input[type="file"]:hover {
   background: #333;
   border-color: #666;
 }
 
-.tool-content input[type="range"] {
+.tool-content input[type="range"],
+.panel-content input[type="range"] {
   width: 100%;
   margin-bottom: 5px;
   -webkit-appearance: none;
@@ -240,7 +255,8 @@ body {
   border-radius: 3px;
 }
 
-.tool-content button {
+.tool-content button,
+.panel-content button {
   background: #333;
   color: #fff;
   border: none;
@@ -256,12 +272,14 @@ body {
   gap: 6px;
 }
 
-.tool-content button:hover:not(:disabled) {
+.tool-content button:hover:not(:disabled),
+.panel-content button:hover:not(:disabled) {
   background: #555;
   transform: translateY(-1px);
 }
 
-.tool-content button:disabled {
+.tool-content button:disabled,
+.panel-content button:disabled {
   background: #555;
   cursor: not-allowed;
   transform: none;

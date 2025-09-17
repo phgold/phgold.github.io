@@ -1882,6 +1882,19 @@ function initializeUI() {
     }
   });
   
+  // Setup collapse functionality for all sections using the working togglePanel function
+  document.getElementById('screen-collapse-btn').addEventListener('click', () => {
+    togglePanel(document.getElementById('screen-collapse-btn'), document.getElementById('screen-content'));
+  });
+  
+  document.getElementById('props-collapse-btn').addEventListener('click', () => {
+    togglePanel(document.getElementById('props-collapse-btn'), document.getElementById('props-content'));
+  });
+  
+  document.getElementById('cameras-collapse-btn').addEventListener('click', () => {
+    togglePanel(document.getElementById('cameras-collapse-btn'), document.getElementById('cameras-content'));
+  });
+  
   // Model upload controls
   const gltfInput = document.getElementById('gltf-input');
   const placeModelButton = document.getElementById('place-model-button');
